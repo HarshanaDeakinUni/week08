@@ -126,7 +126,7 @@ app.include_router(users.router)
 )
 def root() -> dict[str, str]:
     return {
-        "message": "KoalaTech University User Service is running."
+        "message": "KoalaTech University User Service is running. staging demo"
     }
 
 
