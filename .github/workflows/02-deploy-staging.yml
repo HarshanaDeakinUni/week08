@@ -1,4 +1,4 @@
-name: 02 - Deploy to Staging
+name: 02 - Deploy to Stagingg
 
 on:
   workflow_run:
