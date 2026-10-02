@@ -58,7 +58,7 @@ variable "aks_node_count" {
 variable "aks_node_vm_size" {
     description = "Virtual machine size used by the AKS nodes"
     type        = string
-    default     = "Standard_D2s_v3"
+    default     = "Standard_B2ps_v2"
 }
 
 variable "environment" {
@@ -78,6 +78,6 @@ variable "tags" {
     default = {
         Project    = "KoalaTech Course Platform"
         ManagedBy  = "Terraform"
-        Practical  = "Week06"
+        Practical  = "Week10_finallyyyy"
     }
 }
