@@ -40,9 +40,9 @@ grafana:
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi
-    limits:
       memory: 256Mi
+    limits:
+      memory: 768Mi
 
   # Bundled Kubernetes dashboards, so there is data to show immediately.
   defaultDashboardsEnabled: true
