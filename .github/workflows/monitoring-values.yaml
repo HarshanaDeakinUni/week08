@@ -1,0 +1,83 @@
+# kube-prometheus-stack values trimmed for a 3 x Standard_B2ps_v2 cluster
+# (6 vCPU / 24 GB total) that also runs five PostgreSQL databases.
+
+# Alertmanager is not required by the task and costs a pod plus a PVC.
+alertmanager:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    # Short retention keeps the TSDB small enough for emptyDir.
+    retention: 2h
+    retentionSize: 1GB
+
+    # No PVC: node data-disk slots are reserved for the application databases.
+    storageSpec: {}
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 400Mi
+      limits:
+        memory: 900Mi
+
+    # Pick up ServiceMonitors that are not labelled for this release.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+grafana:
+  enabled: true
+
+  # Dashboards are provisioned from config, so no persistent volume needed.
+  persistence:
+    enabled: false
+
+  adminPassword: KoalaTechGrafana123!
+
+  service:
+    type: LoadBalancer
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+  # Bundled Kubernetes dashboards, so there is data to show immediately.
+  defaultDashboardsEnabled: true
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+kubeStateMetrics:
+  enabled: true
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+
+nodeExporter:
+  enabled: true
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+
+# Managed control plane: these endpoints are not reachable on AKS,
+# and leaving them enabled produces permanently failing scrape targets.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false

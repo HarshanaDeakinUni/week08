@@ -1,0 +1,96 @@
+name: 05 - Deploy Monitoring
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'monitoring/**'
+      - '.github/workflows/05-monitoring.yml'
+
+  # Runs after a production deployment so monitoring is validated
+  # against the environment that was just released.
+  workflow_run:
+    workflows:
+      - "04 - Deploy to Production"
+    types:
+      - completed
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+
+  monitoring:
+    name: Deploy Prometheus and Grafana
+    runs-on: ubuntu-latest
+
+    if: >
+      ${{ github.event_name != 'workflow_run' ||
+          github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ vars.AKS_RESOURCE_GROUP }} \
+            --name ${{ vars.AKS_CLUSTER_NAME }} \
+            --overwrite-existing
+
+      - name: Add Prometheus community Helm repository
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
+
+      - name: Install or upgrade kube-prometheus-stack
+        run: |
+          helm upgrade --install monitoring \
+            prometheus-community/kube-prometheus-stack \
+            --namespace monitoring \
+            --create-namespace \
+            --values monitoring/monitoring-values.yaml \
+            --wait \
+            --timeout 10m
+
+      - name: Wait for monitoring pods
+        run: |
+          kubectl wait --namespace monitoring \
+            --for=condition=Ready pods \
+            --selector app.kubernetes.io/name=prometheus \
+            --timeout=300s
+
+      - name: Validate Prometheus is collecting metrics
+        run: |
+          kubectl port-forward --namespace monitoring \
+            svc/monitoring-kube-prometheus-prometheus 9090:9090 &
+          sleep 15
+          echo "--- Active scrape targets ---"
+          curl -s http://localhost:9090/api/v1/targets \
+            | grep -o '"health":"[a-z]*"' | sort | uniq -c
+          echo "--- Sample query: pods running ---"
+          curl -s 'http://localhost:9090/api/v1/query?query=kube_pod_status_phase'
+
+      - name: Report Grafana address
+        run: |
+          echo "Waiting for Grafana load balancer..."
+          for i in $(seq 1 30); do
+            IP=$(kubectl get svc monitoring-grafana --namespace monitoring \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
+            if [ -n "$IP" ]; then
+              echo "Grafana available at http://$IP"
+              echo "### Grafana: http://$IP" >> $GITHUB_STEP_SUMMARY
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Load balancer address not assigned yet."
